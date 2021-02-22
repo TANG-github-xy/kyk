@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="ros_demo" type="ros_deal" name="GPS_IMU" output="screen" />
+</launch>

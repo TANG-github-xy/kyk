@@ -1,13 +1,15 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 #include "ros_demo/info.h"
+#include <string>
 #include <iostream>
 using namespace std;
 ros::Publisher chatter_pub;
+ros::Publisher GPS_IMU_state_pub;
 
 int lenth(int advance_data, int len, const std_msgs::String::ConstPtr& msg)
 {
-	/*数据先验,计算为之字符串长度*/
+	/*数据先验,计算字符串长度*/
 	if(msg->data[0]=='$')
 		{
 			 for(int i=0; i<advance_data; i++)
@@ -95,6 +97,31 @@ int GPS_Data_Check(uint8_t a[],int length)//数据校验
     }
 }
 
+struct GPS_IMU
+{
+        string Header;
+        string GPSTIME;
+        string Longitude;
+        string Lattitude;
+        string Altitude;
+        string Yaw;
+        string Pitch;
+        string V_direction_Angle;
+        string speed;
+        string Roll;
+        string Position_state_1;
+        string Position_state_2;
+        string f_satellite;
+        string b_satellite;
+        string E_Distance;
+        string N_Distance;
+        string D_Distance;
+        string ED_Speed;
+        string ND_Speed;
+        string DD_Speed;
+
+}data;
+
 
 void chatterCallback(const std_msgs::String::ConstPtr& msg)
 {
@@ -110,22 +137,119 @@ void chatterCallback(const std_msgs::String::ConstPtr& msg)
     
     int m =GPS_Data_Check(a,len);
     //cout<<"较验值情况为："<<m<<"\n";
-
+    struct GPS_IMU D;
 	if((len>230||len<190)||(m==0)){
 
 		cout<<"此数据异常不可取\n******************************************\n\n\n";
 	}
    else
    {
-        
+       int num=0;
+       for(int i=0; i<len; i++)
+            {
+                if(a[i]==',')
+                {
+                    num++;
+                    
+                }
+                else 
+                {
+                    
+                    if(num==0)
+                    {
 
-   }
-	std_msgs::String info = *msg;
+                         D.Header += a[i];
+                    }
+                    else if(num==1)
+                    {
+                        D.GPSTIME += a[i];
+                    }
+                    else if(num==2)
+                    {
+                        D.Longitude += a[i];
+                    }
+                    else if(num==3)
+                    {
+                        D.Lattitude += a[i];
+                    }
+                    else if(num==5)
+                    {
+                        D.Yaw += a[i];
+                    }
+                    else if(num==6)
+                    {
+                        D.Pitch += a[i];
+                    }
+                    else if(num==7)
+                    {
+                        D.V_direction_Angle += a[i];
+                    }
+                    else if(num==8)
+                    {
+                        D.speed += a[i];
+                    }
+                    else if(num==9)
+                    {
+                        D.Roll += a[i];
+                    }
+                    else if(num==10)
+                    {
+                        D.Position_state_1 += a[i];
+                    }
+                    else if(num==11)
+                    {
+                        D.Position_state_2 += a[i];
+                    }
+                    else if(num==12)
+                    {
+                        D.f_satellite += a[i];
+                    }
+                    else if(num==13)
+                    {
+                        D.b_satellite += a[i];
+                    }
+                    else if(num==14)
+                    {
+                        D.E_Distance += a[i];
+                    }
+                    else if(num==15)
+                    {
+                        D.N_Distance += a[i];
+                    }
+                    else if(num==16)
+                    {
+                        D.D_Distance += a[i];
+                    }
+                    else if(num==17)
+                    {
+                        D.ED_Speed += a[i];
+                    }
+                    else if(num==18)
+                    {
+                        D.ND_Speed += a[i];
+                    }
+                    else if(num==19)
+                    {
+                        D.DD_Speed += a[i];
+                    }
+
+                }
+           }
+    }
+     
+     //cout<<"\n head:"<<D.Header<<"******"<<D.DD_Speed;
+
+     ros_demo::info data_state;
+     data_state.head = D.Header;
+	 data_state.state_1 = D.Position_state_1;
+     data_state.state_2 = D.Position_state_2;
+     data_state.f_satellite = D.f_satellite;
+     data_state.b_satellite = D.b_satellite;
+     GPS_IMU_state_pub.publish(data_state);
+	 
    
-	chatter_pub.publish(info);
+
 }
-
-
 
 int main(int argc, char *argv[])
 {
@@ -134,7 +258,8 @@ int main(int argc, char *argv[])
 	ros::NodeHandle n;
 	
 	ros::Subscriber sub = n.subscribe("read", 1, chatterCallback);
-	chatter_pub = n.advertise<std_msgs::String>("/chatter", 1000);		
+	chatter_pub = n.advertise<std_msgs::String>("/chatter", 1000);
+    GPS_IMU_state_pub = n.advertise<ros_demo::info>("/GPS_IMU_State", 1000);		
 	ros::spin();
 
 	return 0;

@@ -4,10 +4,18 @@
 #include "ros_demo/gpsimu.h"
 #include <string>
 #include <iostream>
+#include <sensor_msgs/NavSatFix.h>
+#include <sensor_msgs/Imu.h>
+#include <tf/tf.h>
+#include <cstdlib>
 using namespace std;
+
 ros::Publisher chatter_pub;
 ros::Publisher GPS_IMU_state_pub;
 ros::Publisher GPS_IMU_DATA;
+ros::Publisher Imu;
+ros::Publisher GPS;
+
 int lenth(int advance_data, int len, const std_msgs::String::ConstPtr& msg)
 {
 	/*数据先验,计算每条数据字符串长度*/
@@ -285,7 +293,54 @@ void chatterCallback(const std_msgs::String::ConstPtr& msg)
      gps_imu.nd_Speed = D.ED_Speed;
      gps_imu.dd_Speed = D.DD_Speed;
      GPS_IMU_DATA.publish(gps_imu);
-   
+
+
+     /*将字符串类型转换成浮点类型*/
+     double yaw = atof(D.Yaw.c_str());
+     double pitch = atof(D.Pitch.c_str());
+     double roll = atof(D.Roll.c_str());
+     double speed = atof(D.speed.c_str());
+     double latitude = atof(D.Lattitude.c_str());
+     double longitude = atof(D.Longitude.c_str());
+     double altitude = atof(D.Altitude.c_str());
+
+      /*发送ros标准数据IMU*/
+      //欧垃角装四元数
+     tf::Quaternion q;
+     geometry_msgs::Quaternion msg_q;
+
+     q.setRPY(roll,pitch,yaw);
+     tf::quaternionTFToMsg(q, msg_q);  // 将 tf::Quaternion 类型的四元数直接转换成ROS的四元数消息类型。内部实现方式如下：
+     // 若q的模不为1，利用 normalize() 方法将其归一化；
+     // 然后 msg_q.x = q.x(); msg_q.y = q.y(); msg_q.z = q.z();  msg_q.w = q.w(); 对四元数消息赋值；
+
+     sensor_msgs::Imu imu_data;
+     imu_data.header.stamp = ros::Time::now();
+     imu_data.header.frame_id = "base_link";
+
+     imu_data.orientation.x = msg_q.x;
+     imu_data.orientation.y = msg_q.y;
+     imu_data.orientation.z = msg_q.z;
+     imu_data.orientation.w = msg_q.w;
+     
+     imu_data.angular_velocity.x = 0.0;
+     imu_data.angular_velocity.y = 0.0;
+     imu_data.angular_velocity.z = 0.0;
+
+     imu_data.linear_acceleration.x = 0;
+     imu_data.linear_acceleration.y = speed;
+     imu_data.linear_acceleration.z = 0;
+     Imu.publish(imu_data);
+
+     /*发送GPS标准数据*/
+     sensor_msgs::NavSatFix gps_data;
+     gps_data.header.stamp = ros::Time::now();
+     gps_data.header.frame_id = "base_link";
+
+     gps_data.latitude = latitude;
+     gps_data.altitude = altitude;
+     gps_data.longitude = longitude;
+     GPS.publish(gps_data);
 
 }
 
@@ -298,7 +353,9 @@ int main(int argc, char *argv[])
 	ros::Subscriber sub = n.subscribe("read", 1, chatterCallback);
 	chatter_pub = n.advertise<std_msgs::String>("/chatter", 1000);
     GPS_IMU_state_pub = n.advertise<ros_demo::info>("/GPS_IMU_State", 1000);
-    GPS_IMU_DATA = n.advertise<ros_demo::gpsimu>("GPS_IMU_DATA", 1000);	
+    GPS_IMU_DATA = n.advertise<ros_demo::gpsimu>("GPS_IMU_DATA", 1000);
+    Imu = n.advertise<sensor_msgs::Imu>("/KYK/IMU",1000);
+    GPS = n.advertise<sensor_msgs::NavSatFix>("/KYK/GPS",1000);	
 	ros::spin();
 
 	return 0;
